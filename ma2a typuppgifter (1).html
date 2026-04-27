@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MA2 MatteQuiz – Dynamisk Version</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']] },
+      chtml: { scale: 1.18 }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body { background:#0f172a; color:#e2e8f0; font-family:system-ui,sans-serif; }
+    .card { background:#1e293b; border:1px solid #334155; border-radius:1rem; }
+    .correct   { border-color:#10b981 !important; background: rgba(16, 185, 129, 0.1) !important; }
+    .incorrect { border-color:#ef4444 !important; background: rgba(239, 68, 68, 0.1) !important; }
+    .streak-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; transition: all 0.3s; }
+    .dot-off { background: #334155; border: 1px solid #475569; }
+    .dot-on { background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
+    .progress-fill { transition: width 0.5s ease-in-out; }
+    .system-bracket { font-size: 3.5rem; font-weight: 300; line-height: 1.1; color: #6366f1; margin-right: 0.5rem; }
+    .svg-box { background:white; border-radius:8px; padding:10px; margin: 10px 0; }
+    .mini-note { background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; padding: 12px; }
+    .step-title { color:#c7d2fe; font-weight:800; margin-bottom:6px; }
+    .method-title { color:#fcd34d; font-weight:800; margin-bottom:6px; }
+    .diagram-title { color:#a7f3d0; font-weight:800; margin-bottom:6px; }
+  </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8">
+
+<div class="max-w-4xl mx-auto">
+  <header class="mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+      <h1 class="text-3xl font-bold text-indigo-400">
+        QuizGPT
+        <button type="button" onclick="skipLevel()" class="text-indigo-400 hover:text-indigo-300 underline decoration-indigo-400/60 underline-offset-4">
+          Ma2
+        </button>
+      </h1>
+      <div class="bg-slate-800 px-4 py-2 rounded-lg font-mono text-sm border border-slate-700">
+        Nivå: <span id="lvlDisplay">1</span>/20
+      </div>
+    </div>
+    <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700 mb-2">
+      <div id="progressBar" class="progress-fill h-full bg-indigo-500" style="width: 0%"></div>
+    </div>
+    <div class="flex justify-between text-xs text-slate-500 uppercase tracking-widest px-1">
+      <span id="streakText">Nivå-streak: 0/3</span>
+      <span>Mål: Nivå 20</span>
+    </div>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mb-6">
+    <button id="checkBtn" onclick="checkQuestion()" class="px-6 py-3 bg-emerald-700 hover:bg-emerald-600 rounded-xl font-bold transition shadow-lg">Svara</button>
+    <button id="nextBtn" onclick="nextQuestion()" class="px-6 py-3 bg-indigo-700 hover:bg-indigo-600 rounded-xl font-bold hidden transition shadow-lg">Nästa uppgift →</button>
+    <button onclick="document.getElementById('calcModal').classList.remove('hidden')" class="px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition">🧮 Räknare</button>
+  </div>
+
+  <div id="streakContainer" class="flex gap-2 mb-4 items-center bg-slate-800/50 p-3 rounded-lg w-fit border border-slate-700/50">
+    <div id="dot1" class="streak-dot dot-off"></div>
+    <div id="dot2" class="streak-dot dot-off"></div>
+    <div id="dot3" class="streak-dot dot-off"></div>
+  </div>
+
+  <div id="questionArea" class="card p-6 sm:p-10 shadow-2xl min-h-[350px]"></div>
+  <div id="feedbackArea" class="mt-4 hidden"></div>
+</div>
+
+<div id="calcModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
+  <div class="bg-slate-900 p-6 rounded-2xl w-80 border border-slate-700 shadow-2xl">
+    <input id="calcIn" type="text" readonly class="w-full p-4 bg-slate-800 text-right text-2xl mb-4 font-mono text-emerald-400 border border-slate-700 rounded-lg">
+    <div class="grid grid-cols-4 gap-2">
+      <button onclick="calc('7')" class="p-4 bg-slate-800 rounded">7</button>
+      <button onclick="calc('8')" class="p-4 bg-slate-800 rounded">8</button>
+      <button onclick="calc('9')" class="p-4 bg-slate-800 rounded">9</button>
+      <button onclick="calc('/')" class="p-4 bg-indigo-900 rounded">/</button>
+      <button onclick="calc('4')" class="p-4 bg-slate-800 rounded">4</button>
+      <button onclick="calc('5')" class="p-4 bg-slate-800 rounded">5</button>
+      <button onclick="calc('6')" class="p-4 bg-slate-800 rounded">6</button>
+      <button onclick="calc('*')" class="p-4 bg-indigo-900 rounded">*</button>
+      <button onclick="calc('1')" class="p-4 bg-slate-800 rounded">1</button>
+      <button onclick="calc('2')" class="p-4 bg-slate-800 rounded">2</button>
+      <button onclick="calc('3')" class="p-4 bg-slate-800 rounded">3</button>
+      <button onclick="calc('-')" class="p-4 bg-indigo-900 rounded">-</button>
+      <button onclick="calc('0')" class="p-4 bg-slate-800 rounded">0</button>
+      <button onclick="calc('.')" class="p-4 bg-slate-800 rounded">.</button>
+      <button onclick="calc('Math.log10(')" class="p-4 bg-indigo-900 rounded text-xs">lg</button>
+      <button onclick="calc('+')" class="p-4 bg-indigo-900 rounded">+</button>
+      <button onclick="calc('**')" class="p-4 bg-indigo-900 rounded">xⁿ</button>
+      <button onclick="document.getElementById('calcIn').value=''" class="p-4 bg-red-700 rounded font-bold">C</button>
+      <button onclick="evalCalc()" class="p-4 bg-emerald-600 rounded col-span-2">=</button>
+      <button onclick="document.getElementById('calcModal').classList.add('hidden')" class="col-span-4 mt-2 text-xs text-center text-slate-500 uppercase">Stäng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const levels = [
+  { n: 1, title: "Kvadreringsregler" },
+  { n: 2, title: "Konjugatregeln" },
+  { n: 3, title: "Potenslagar" },
+  { n: 4, title: "Logaritmer" },
+  { n: 5, title: "Exponentialfunktioner" },
+  { n: 6, title: "Bråkpotenser & Rötter" },
+  { n: 7, title: "Lutning (k-värde)" },
+  { n: 8, title: "Linjens ekvation 1" },
+  { n: 9, title: "Linjens ekvation 2" },
+  { n: 10, title: "Avståndsformeln" },
+  { n: 11, title: "Ekvationssystem" },
+  { n: 12, title: "Faktorisering" },
+  { n: 13, title: "PQ-formeln" },
+  { n: 14, title: "Vertex" },
+  { n: 15, title: "Lådagram 1" },
+  { n: 16, title: "Jämföra Lådagram" },
+  { n: 17, title: "Normalfördelning" },
+  { n: 18, title: "Standardavvikelse" },
+  { n: 19, title: "Beräkna Standardavvikelse" },
+  { n: 20, title: "Vinkelräta linjer" }
+];
+
+function drawSingleBox(data, label) {
+  const s = 14;
+  let svg = `<div class="svg-box"><svg width="300" height="80" viewBox="0 0 300 80">`;
+  const y = 30;
+  const d = data;
+  svg += `<text x="5" y="${y+10}" font-size="12" font-weight="bold" fill="black">${label}</text>`;
+  svg += `<line x1="${d[0]*s}" y1="${y}" x2="${d[4]*s}" y2="${y}" stroke="black"/>`;
+  svg += `<rect x="${d[1]*s}" y="${y-10}" width="${(d[3]-d[1])*s}" height="20" fill="white" stroke="black" stroke-width="1.5"/>`;
+  svg += `<line x1="${d[2]*s}" y1="${y-10}" x2="${d[2]*s}" y2="${y+10}" stroke="black" stroke-width="2"/>`;
+  svg += `<line x1="0" y1="65" x2="280" y2="65" stroke="#ccc" />`;
+  [0, 5, 10, 15, 20].forEach(v => {
+    svg += `<text x="${v*s}" y="78" font-size="9" text-anchor="middle" fill="#666">${v}</text>`;
+  });
+  svg += `</svg></div>`;
+  return svg;
+}
+
+/* === NYTT: diagram-funktioner (endast för feedback) === */
+function svgDistanceTriangle(x1,y1,x2,y2){
+  const W=360,H=260;
+  const pad=35;
+  const minX=Math.min(x1,x2)-2, maxX=Math.max(x1,x2)+2;
+  const minY=Math.min(y1,y2)-2, maxY=Math.max(y1,y2)+2;
+  const sx=v=> pad + (v-minX)*(W-2*pad)/(maxX-minX);
+  const sy=v=> H-pad - (v-minY)*(H-2*pad)/(maxY-minY);
+
+  const xA=sx(x1), yA=sy(y1);
+  const xB=sx(x2), yB=sy(y2);
+  const xC=xB, yC=yA; // rätvinklig triangel med "ben" horisontellt/vertikalt
+
+  const dx=Math.abs(x2-x1), dy=Math.abs(y2-y1);
+
+  // Tydlig skala: rimligt antal markeringar (1 eller 2 steg)
+  const rangeX = maxX-minX, rangeY = maxY-minY;
+  const stepX = (rangeX<=8) ? 1 : 2;
+  const stepY = (rangeY<=8) ? 1 : 2;
+
+  let xTicks = "", yTicks = "", grid = "";
+  for(let v=Math.ceil(minX); v<=Math.floor(maxX); v+=stepX){
+    const xx = sx(v);
+    grid += `<line x1="${xx}" y1="${pad}" x2="${xx}" y2="${H-pad}" stroke="#e5e7eb" stroke-width="1"/>`;
+    xTicks += `<line x1="${xx}" y1="${H-pad}" x2="${xx}" y2="${H-pad+6}" stroke="#64748b" stroke-width="2"/>` +
+              `<text x="${xx}" y="${H-pad+20}" font-size="11" text-anchor="middle" fill="#334155">${v}</text>`;
+  }
+  for(let v=Math.ceil(minY); v<=Math.floor(maxY); v+=stepY){
+    const yy = sy(v);
+    grid += `<line x1="${pad}" y1="${yy}" x2="${W-pad}" y2="${yy}" stroke="#e5e7eb" stroke-width="1"/>`;
+    yTicks += `<line x1="${pad-6}" y1="${yy}" x2="${pad}" y2="${yy}" stroke="#64748b" stroke-width="2"/>` +
+              `<text x="${pad-10}" y="${yy+4}" font-size="11" text-anchor="end" fill="#334155">${v}</text>`;
+  }
+
+  // axlar (om 0 ligger inom rutan, rita dem mörkare)
+  const xAxis = (minY<=0 && maxY>=0) ? `<line x1="${pad}" y1="${sy(0)}" x2="${W-pad}" y2="${sy(0)}" stroke="#94a3b8" stroke-width="2"/>` : "";
+  const yAxis = (minX<=0 && maxX>=0) ? `<line x1="${sx(0)}" y1="${pad}" x2="${sx(0)}" y2="${H-pad}" stroke="#94a3b8" stroke-width="2"/>` : "";
+
+  return `
+  <div class="svg-box">
+    <div class="diagram-title">📌 Bild (för Pythagoras): punkter + rätvinklig triangel</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="240" role="img" aria-label="Triangel för avstånd (med skala)">
+      <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="white"/>
+
+      ${grid}
+      ${xAxis}
+      ${yAxis}
+
+      <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#64748b" stroke-width="2"/>
+      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#64748b" stroke-width="2"/>
+      ${xTicks}
+      ${yTicks}
+
+      <line x1="${xA}" y1="${yA}" x2="${xC}" y2="${yC}" stroke="#0f172a" stroke-width="3"/>
+      <line x1="${xC}" y1="${yC}" x2="${xB}" y2="${yB}" stroke="#0f172a" stroke-width="3"/>
+      <line x1="${xA}" y1="${yA}" x2="${xB}" y2="${yB}" stroke="#2563eb" stroke-width="4"/>
+
+      <rect x="${Math.min(xC,xB)-6}" y="${Math.min(yC,yB)-6}" width="12" height="12" fill="none" stroke="#0f172a" stroke-width="2"/>
+
+      <circle cx="${xA}" cy="${yA}" r="6" fill="#ef4444"/><text x="${xA+10}" y="${yA-10}" font-size="14" fill="#0f172a" font-weight="700">A(${x1},${y1})</text>
+      <circle cx="${xB}" cy="${yB}" r="6" fill="#10b981"/><text x="${xB+10}" y="${yB-10}" font-size="14" fill="#0f172a" font-weight="700">B(${x2},${y2})</text>
+
+      <text x="${(xA+xC)/2}" y="${yA-10}" font-size="14" fill="#0f172a" font-weight="700">Δx = ${dx}</text>
+      <text x="${xC+10}" y="${(yC+yB)/2}" font-size="14" fill="#0f172a" font-weight="700">Δy = ${dy}</text>
+      <text x="${(xA+xB)/2}" y="${(yA+yB)/2-12}" font-size="14" fill="#2563eb" font-weight="800">d</text>
+    </svg>
+  </div>`;
+}
+
+function svgSystemGraph(a1,b1,c1,a2,b2,c2,x0,y0){
+  const W=360,H=260,pad=35;
+  const minX=-6,maxX=6,minY=-6,maxY=6;
+  const sx=v=> pad + (v-minX)*(W-2*pad)/(maxX-minX);
+  const sy=v=> H-pad - (v-minY)*(H-2*pad)/(maxY-minY);
+
+  const yLine = (a,b,c,x)=> (c - a*x)/b; // a x + b y = c
+
+  const xL=minX, xR=maxX;
+  const y1L=yLine(a1,b1,c1,xL), y1R=yLine(a1,b1,c1,xR);
+  const y2L=yLine(a2,-b2,c2,xL), y2R=yLine(a2,-b2,c2,xR); // a2x - b2y = c2  => a2x + (-b2)y = c2
+
+  const p1L = `${sx(xL)},${sy(y1L)}`;
+  const p1R = `${sx(xR)},${sy(y1R)}`;
+  const p2L = `${sx(xL)},${sy(y2L)}`;
+  const p2R = `${sx(xR)},${sy(y2R)}`;
+
+  const ticks = [-6,-4,-2,0,2,4,6];
+  const grid = ticks.map(v=>{
+    const xx = sx(v), yy = sy(v);
+    return `
+      <line x1="${xx}" y1="${pad}" x2="${xx}" y2="${H-pad}" stroke="#e5e7eb" stroke-width="1"/>
+      <line x1="${pad}" y1="${yy}" x2="${W-pad}" y2="${yy}" stroke="#e5e7eb" stroke-width="1"/>
+    `;
+  }).join("");
+
+  const xTickMarks = ticks.map(v=>{
+    const xx = sx(v);
+    return `
+      <line x1="${xx}" y1="${sy(0)}" x2="${xx}" y2="${sy(0)+6}" stroke="#64748b" stroke-width="2"/>
+      <text x="${xx}" y="${sy(0)+20}" font-size="11" text-anchor="middle" fill="#334155">${v}</text>
+    `;
+  }).join("");
+
+  const yTickMarks = ticks.map(v=>{
+    const yy = sy(v);
+    return `
+      <line x1="${sx(0)-6}" y1="${yy}" x2="${sx(0)}" y2="${yy}" stroke="#64748b" stroke-width="2"/>
+      <text x="${sx(0)-10}" y="${yy+4}" font-size="11" text-anchor="end" fill="#334155">${v}</text>
+    `;
+  }).join("");
+
+  return `
+  <div class="svg-box">
+    <div class="diagram-title">📌 Bild (grafisk lösning): två linjer och skärningspunkt (med skala)</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="240" role="img" aria-label="Graf för ekvationssystem (med skala)">
+      <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="white"/>
+
+      ${grid}
+
+      <line x1="${pad}" y1="${sy(0)}" x2="${W-pad}" y2="${sy(0)}" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="${sx(0)}" y1="${pad}" x2="${sx(0)}" y2="${H-pad}" stroke="#94a3b8" stroke-width="2"/>
+      ${xTickMarks}
+      ${yTickMarks}
+
+      <polyline points="${p1L} ${p1R}" fill="none" stroke="#2563eb" stroke-width="4"/>
+      <polyline points="${p2L} ${p2R}" fill="none" stroke="#ef4444" stroke-width="4"/>
+
+      <circle cx="${sx(x0)}" cy="${sy(y0)}" r="6" fill="#10b981"/>
+      <text x="${sx(x0)+10}" y="${sy(y0)-10}" font-size="14" fill="#0f172a" font-weight="800">(${x0},${y0})</text>
+
+      <text x="${pad}" y="${pad+18}" font-size="12" fill="#0f172a" font-weight="700">Blå: ${a1}x+${b1}y=${c1}</text>
+      <text x="${pad}" y="${pad+38}" font-size="12" fill="#0f172a" font-weight="700">Röd: ${a2}x-${b2}y=${c2}</text>
+    </svg>
+  </div>`;
+}
+
+function svgPerpLines(k1,m1,k2,m2,xP,yP){
+  const W=360,H=260,pad=35;
+  const minX=-6,maxX=6,minY=-6,maxY=6;
+  const sx=v=> pad + (v-minX)*(W-2*pad)/(maxX-minX);
+  const sy=v=> H-pad - (v-minY)*(H-2*pad)/(maxY-minY);
+
+  const yAt = (k,m,x)=> k*x + m;
+
+  const xL=minX, xR=maxX;
+  const y1L=yAt(k1,m1,xL), y1R=yAt(k1,m1,xR);
+  const y2L=yAt(k2,m2,xL), y2R=yAt(k2,m2,xR);
+
+  const p1L = `${sx(xL)},${sy(y1L)}`;
+  const p1R = `${sx(xR)},${sy(y1R)}`;
+  const p2L = `${sx(xL)},${sy(y2L)}`;
+  const p2R = `${sx(xR)},${sy(y2R)}`;
+
+  const ticks = [-6,-4,-2,0,2,4,6];
+  const grid = ticks.map(v=>{
+    const xx = sx(v), yy = sy(v);
+    return `
+      <line x1="${xx}" y1="${pad}" x2="${xx}" y2="${H-pad}" stroke="#e5e7eb" stroke-width="1"/>
+      <line x1="${pad}" y1="${yy}" x2="${W-pad}" y2="${yy}" stroke="#e5e7eb" stroke-width="1"/>
+    `;
+  }).join("");
+
+  const xTickMarks = ticks.map(v=>{
+    const xx = sx(v);
+    return `
+      <line x1="${xx}" y1="${sy(0)}" x2="${xx}" y2="${sy(0)+6}" stroke="#64748b" stroke-width="2"/>
+      <text x="${xx}" y="${sy(0)+20}" font-size="11" text-anchor="middle" fill="#334155">${v}</text>
+    `;
+  }).join("");
+
+  const yTickMarks = ticks.map(v=>{
+    const yy = sy(v);
+    return `
+      <line x1="${sx(0)-6}" y1="${yy}" x2="${sx(0)}" y2="${yy}" stroke="#64748b" stroke-width="2"/>
+      <text x="${sx(0)-10}" y="${yy+4}" font-size="11" text-anchor="end" fill="#334155">${v}</text>
+    `;
+  }).join("");
+
+  return `
+  <div class="svg-box">
+    <div class="diagram-title">📌 Bild (vinkelräta linjer): given linje, punkt och 90°-linje (med skala)</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="240" role="img" aria-label="Vinkelräta linjer (med skala)">
+      <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="white"/>
+
+      ${grid}
+
+      <line x1="${pad}" y1="${sy(0)}" x2="${W-pad}" y2="${sy(0)}" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="${sx(0)}" y1="${pad}" x2="${sx(0)}" y2="${H-pad}" stroke="#94a3b8" stroke-width="2"/>
+      ${xTickMarks}
+      ${yTickMarks}
+
+      <polyline points="${p1L} ${p1R}" fill="none" stroke="#2563eb" stroke-width="4"/>
+      <polyline points="${p2L} ${p2R}" fill="none" stroke="#ef4444" stroke-width="4"/>
+
+      <circle cx="${sx(xP)}" cy="${sy(yP)}" r="6" fill="#10b981"/>
+      <text x="${sx(xP)+10}" y="${sy(yP)-10}" font-size="14" fill="#0f172a" font-weight="800">P(${xP},${yP})</text>
+
+      <text x="${pad}" y="${pad+18}" font-size="12" fill="#0f172a" font-weight="700">Blå: y=${(Math.round(k1*100)/100).toString().replace('.', ',')}x ${(m1>=0?'+ ':'- ')+Math.abs(Math.round(m1*100)/100).toString().replace('.', ',')}</text>
+      <text x="${pad}" y="${pad+38}" font-size="12" fill="#0f172a" font-weight="700">Röd: y=${(Math.round(k2*100)/100).toString().replace('.', ',')}x ${(m2>=0?'+ ':'- ')+Math.abs(Math.round(m2*100)/100).toString().replace('.', ',')}</text>
+    </svg>
+  </div>`;
+}
+
+function generateDynamicQuestion(lvlIdx) {
+  const r = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  let qData = { n: levels[lvlIdx].n, title: levels[lvlIdx].title };
+
+  switch(lvlIdx) {
+    case 0: {
+      let a1 = r(2, 5), b1 = r(2, 9);
+      if (Math.random() > 0.5) {
+        if(Math.random() > 0.5) {
+          qData.q = `Utveckla: \\((${a1}x - ${b1})^2\\)`;
+          qData.opts = [
+            `\\(${a1*a1}x^2 - ${2*a1*b1}x + ${b1*b1}\\)`,
+            `\\(${a1*a1}x^2 - ${a1*b1}x + ${b1*b1}\\)`,
+            `\\(${a1*a1}x^2 - ${b1*b1}\\)`,
+            `\\(${a1}x^2 - ${2*a1*b1}x + ${b1*b1}\\)`
+          ];
+          qData.expl =
+            `Steg 1: Använd regeln \\((a-b)^2=a^2-2ab+b^2\\).\n` +
+            `Steg 2: Här är \\(a=${a1}x\\) och \\(b=${b1}\\).\n` +
+            `Steg 3: \\(a^2=(${a1}x)^2=${a1*a1}x^2\\).\n` +
+            `Steg 4: \\(-2ab=-2\\cdot(${a1}x)\\cdot(${b1})=-${2*a1*b1}x\\).\n` +
+            `Steg 5: \\(b^2=(${b1})^2=${b1*b1}\\).\n` +
+            `Alltså: \\(${a1*a1}x^2-${2*a1*b1}x+${b1*b1}\\).`;
+          qData.alt =
+            `Alternativt sätt: Skriv \\((${a1}x-${b1})^2\\) som \\((${a1}x-${b1})(${a1}x-${b1})\\) och multiplicera parenteserna: \n` +
+            `• \\(${a1}x\\cdot${a1}x=${a1*a1}x^2\\)\n` +
+            `• \\(${a1}x\\cdot(-${b1})=-${a1*b1}x\\)\n` +
+            `• \\((-${b1})\\cdot${a1}x=-${a1*b1}x\\)\n` +
+            `• \\((-${b1})\\cdot(-${b1})=${b1*b1}\\)\n` +
+            `Summa: \\(${a1*a1}x^2-${2*a1*b1}x+${b1*b1}\\).`;
+        } else {
+          qData.q = `Utveckla: \\((${a1}x + ${b1})^2\\)`;
+          qData.opts = [
+            `\\(${a1*a1}x^2 + ${2*a1*b1}x + ${b1*b1}\\)`,
+            `\\(${a1*a1}x^2 + ${a1*b1}x + ${b1*b1}\\)`,
+            `\\(${a1*a1}x^2 + ${b1*b1}\\)`,
+            `\\(${a1}x^2 + ${2*a1*b1}x + ${b1*b1}\\)`
+          ];
+          qData.expl =
+            `Steg 1: Använd regeln \\((a+b)^2=a^2+2ab+b^2\\).\n` +
+            `Steg 2: Här är \\(a=${a1}x\\) och \\(b=${b1}\\).\n` +
+            `Steg 3: \\(a^2=(${a1}x)^2=${a1*a1}x^2\\).\n` +
+            `Steg 4: \\(+2ab=2\\cdot(${a1}x)\\cdot(${b1})=+${2*a1*b1}x\\).\n` +
+            `Steg 5: \\(b^2=(${b1})^2=${b1*b1}\\).\n` +
+            `Alltså: \\(${a1*a1}x^2+${2*a1*b1}x+${b1*b1}\\).`;
+          qData.alt =
+            `Alternativt sätt: multiplicera \\((${a1}x+${b1})(${a1}x+${b1})\\) och samla lika termer.\n` +
+            `Du får två likadana mittentermer: \\(${a1*b1}x + ${a1*b1}x = ${2*a1*b1}x\\).`;
+        }
+        qData.corr = 0;
+      } else {
+        const isMinus = Math.random() > 0.5;
+        const mid = 2*a1*b1;
+        const a2 = a1*a1;
+        const b2 = b1*b1;
+
+        if (isMinus) {
+          qData.q = `Vilken parentesform stämmer?\n\nFörenklat uttryck: \\(${a2}x^2 - ${mid}x + ${b2}\\)`;
+          qData.opts = [
+            `\\((${a1}x - ${b1})^2\\)`,
+            `\\((${a1}x + ${b1})^2\\)`,
+            `\\((${a1}x)^2 - ${b1}^2\\)`,
+            `\\((${a1}x - ${b1})(x - ${b1})\\)`
+          ];
+          qData.expl =
+            `Steg 1: Jämför med \\((ax\\pm b)^2=a^2x^2\\pm2abx+b^2\\).\n` +
+            `Steg 2: Här är mitten-termen \\(-${mid}x\\).\n` +
+            `Steg 3: Mitten-termen blir negativ bara om det är minus i parentesen.\n` +
+            `Alltså är det \\((${a1}x-${b1})^2\\).`;
+          qData.alt =
+            `Snabbkoll med tal: \\(-2ab=-2\\cdot${a1}\\cdot${b1}=-${mid}\\). Det matchar mitten-termen \\(-${mid}x\\).`;
+        } else {
+          qData.q = `Vilken parentesform stämmer?\n\nFörenklat uttryck: \\(${a2}x^2 + ${mid}x + ${b2}\\)`;
+          qData.opts = [
+            `\\((${a1}x + ${b1})^2\\)`,
+            `\\((${a1}x - ${b1})^2\\)`,
+            `\\((${a1}x)^2 + ${b1}^2\\)`,
+            `\\((${a1}x + ${b1})(x + ${b1})\\)`
+          ];
+          qData.expl =
+            `Steg 1: Jämför med \\((ax\\pm b)^2=a^2x^2\\pm2abx+b^2\\).\n` +
+            `Steg 2: Här är mitten-termen \\(+${mid}x\\) (positiv).\n` +
+            `Steg 3: Då måste det vara plus i parentesen.\n` +
+            `Alltså är det \\((${a1}x+${b1})^2\\).`;
+          qData.alt =
+            `Snabbkoll med tal: \\(+2ab=2\\cdot${a1}\\cdot${b1}=+${mid}\\). Det matchar mitten-termen \\(+${mid}x\\).`;
+        }
+
+        qData.corr = 0;
+      }
+      break;
+    }
+
+    case 1: {
+      let c2 = r(2, 12);
+
+      if (Math.random() > 0.5) {
+        qData.q = `Förenkla: \\((x + ${c2})(x - ${c2})\\)`;
+        qData.corr = 0;
+        qData.opts = [
+          `\\(x^2 - ${c2*c2}\\)`,
+          `\\(x^2 + ${c2*c2}\\)`,
+          `\\(x^2 - ${2*c2}\\)`,
+          `\\(x^2 - ${c2}x + ${c2*c2}\\)`
+        ];
+        qData.expl =
+          `Steg 1: Använd konjugatregeln \\((a+b)(a-b)=a^2-b^2\\).\n` +
+          `Steg 2: Här är \\(a=x\\) och \\(b=${c2}\\).\n` +
+          `Steg 3: \\(a^2=x^2\\) och \\(b^2=${c2}^2=${c2*c2}\\).\n` +
+          `Alltså: \\(x^2-${c2*c2}\\).`;
+        qData.alt =
+          `Alternativt sätt (multiplicera):\n` +
+          `\\((x+${c2})(x-${c2}) = x\\cdot x + x\\cdot(-${c2}) + ${c2}\\cdot x + ${c2}\\cdot(-${c2})\\)\n` +
+          `= \\(x^2 - ${c2}x + ${c2}x - ${c2*c2} = x^2 - ${c2*c2}\\).`;
+      } else {
+        qData.q = `Faktorisera: \\(x^2 - ${c2*c2}\\)`;
+        qData.corr = 0;
+        qData.opts = [
+          `\\((x + ${c2})(x - ${c2})\\)`,
+          `\\((x + ${c2})^2\\)`,
+          `\\((x - ${c2})^2\\)`,
+          `\\((x + ${c2})(x + ${c2})\\)`
+        ];
+        qData.expl =
+          `Steg 1: Känn igen \\(a^2-b^2\\) (differens av kvadrater).\n` +
+          `Steg 2: Här är \\(a=x\\) och \\(b=${c2}\\) eftersom \\(${c2*c2}=${c2}^2\\).\n` +
+          `Steg 3: Använd \\(a^2-b^2=(a+b)(a-b)\\).\n` +
+          `Alltså: \\((x+${c2})(x-${c2})\\).`;
+        qData.alt =
+          `Kontroll: Multiplicera tillbaka parenteserna och se att du får \\(x^2-${c2*c2}\\).`;
+      }
+      break;
+    }
+
+    case 2: {
+      let p1 = r(2, 5), p2 = r(2, 4), p3 = r(2, 5);
+      if(Math.random() > 0.5) {
+          qData.q = `Förenkla: \\(\\frac{x^{${p2}}}{x^{-${p3}}}\\)`;
+          qData.corr = 0;
+          qData.opts = [`\\(x^{${p2+p3}}\\)` , `\\(x^{${p2-p3}}\\)` , `\\(x^{${p2*p3}}\\)` , `\\(1/x^{${p3}}\\)`];
+          qData.expl =
+            `Steg 1: Vid division gäller \\(x^a/x^b=x^{a-b}\\).\n` +
+            `Steg 2: Här är \\(a=${p2}\\) och \\(b=-${p3}\\).\n` +
+            `Steg 3: \\(a-b=${p2}-(-${p3})=${p2}+${p3}=${p2+p3}\\).\n` +
+            `Alltså: \\(x^{${p2+p3}}\\).`;
+          qData.alt =
+            `Tänk så här: \\(x^{-${p3}}\\) betyder \\(1/x^{${p3}}\\). När du delar med \\(1/x^{${p3}}\\) blir det samma som att multiplicera med \\(x^{${p3}}\\).`;
+      } else {
+          qData.q = `Förenkla: \\(\\frac{(${p1}x^{${p2}})^{2}}{x^{${p3}}}\\)`;
+          qData.corr = 0;
+          qData.opts = [`\\(${p1*p1}x^{${p2*2-p3}}\\)` , `\\(${p1*2}x^{${p2*2-p3}}\\)`, `\\(${p1*p1}x^{${p2*2}}\\)` , `\\(${p1*p1}x^{${p2-p3}}\\)`];
+          qData.expl =
+            `Steg 1: Potens av produkt: \\((${p1}x^{${p2}})^2 = ${p1}^2\\cdot (x^{${p2}})^2\\).\n` +
+            `Steg 2: \\(${p1}^2=${p1*p1}\\) och \\((x^{${p2}})^2=x^{${p2*2}}\\).\n` +
+            `Steg 3: Nu har du \\(\\frac{${p1*p1}x^{${p2*2}}}{x^{${p3}}}\\).\n` +
+            `Steg 4: Vid division: \\(x^{${p2*2}}/x^{${p3}}=x^{${p2*2}-${p3}}=x^{${p2*2-p3}}\\).\n` +
+            `Alltså: \\(${p1*p1}x^{${p2*2-p3}}\\).`;
+          qData.alt =
+            `Snabbkoll: två “regler” i rad:\n` +
+            `• \\((x^a)^b=x^{ab}\\)\n` +
+            `• \\(x^a/x^b=x^{a-b}\\)`;
+      }
+      break;
+    }
+
+    case 3: {
+      let lVal = r(2, 5);
+      if(Math.random() > 0.5) {
+          let logArg = Math.pow(10, lVal);
+          qData.q = `Beräkna: \\(x = \\lg(${logArg})\\)`;
+          qData.corr = 0;
+          qData.opts = [`\\(x = ${lVal}\\)`, `\\(x = 10\\)`, `\\(x = ${logArg/10}\\)`, `\\(x = 1\\)`];
+          qData.expl =
+            `Steg 1: \\(\\lg(${logArg})\\) betyder: “vilken exponent ska 10 ha för att bli ${logArg}?”.\n` +
+            `Steg 2: Vi vet att \\(10^{${lVal}}=${logArg}\\).\n` +
+            `Alltså är \\(x=${lVal}\\).`;
+          qData.alt =
+            `Kontroll: Sätt in svaret i \\(10^x\\). Om \\(x=${lVal}\\) får du \\(10^{${lVal}}=${logArg}\\).`;
+      } else {
+          qData.q = `Lös ekvationen: \\(\\lg(x) = ${lVal}\\)`;
+          qData.corr = 0;
+          qData.opts = [`\\(x = ${Math.pow(10, lVal)}\\)`, `\\(x = ${lVal*10}\\)`, `\\(x = ${lVal}\\)`, `\\(x = 100\\)`];
+          qData.expl =
+            `Steg 1: Om \\(\\lg(x)=${lVal}\\) betyder det att \\(x=10^{${lVal}}\\).\n` +
+            `Steg 2: \\(10^{${lVal}}=${Math.pow(10,lVal)}\\).\n` +
+            `Alltså: \\(x=${Math.pow(10,lVal)}\\).`;
+          qData.alt =
+            `Samband: \\(\\lg(x)=y\\) ⇔ \\(x=10^y\\).`;
+      }
+      break;
+    }
+
+    case 4: {
+      let start = r(1, 5) * 100000, dec = r(5, 25);
+      const factor = (1 - dec/100);
+      qData.q = `Värdet minskar med ${dec}% per år från ${start} kr. Vilken funktion beskriver värdet \\(y\\) efter \\(x\\) år?`;
+      qData.corr = 0;
+      qData.opts = [
+        `\\(y = ${start} \\cdot ${factor.toFixed(2).replace('.', ',')}^x\\)`,
+        `\\(y = ${start} \\cdot ${(1+dec/100).toFixed(2).replace('.', ',')}^x\\)`,
+        `\\(y = ${start} \\cdot ${(dec/100).toFixed(2).replace('.', ',')}^x\\)`,
+        `\\(y = ${start} - ${(dec/100).toFixed(2).replace('.', ',')}x\\)`
+      ];
+      qData.expl =
+        `Steg 1: En minskning med ${dec}% betyder att ${(100-dec)}% är kvar.\n` +
+        `Steg 2: Förändringsfaktorn blir \\(1-${dec}/100 = ${factor.toFixed(2).replace('.', ',')}\\).\n` +
+        `Steg 3: Startvärdet är ${start} (när \\(x=0\\)).\n` +
+        `Steg 4: Exponentialmodell: \\(y = \\text{start}\\cdot \\text{faktor}^x\\).\n` +
+        `Alltså: \\(y=${start}\\cdot ${factor.toFixed(2).replace('.', ',')}^x\\).`;
+      qData.alt =
+        `Snabbminne:\n` +
+        `• Ökning ${dec}% ⇒ faktor \\(1+${dec}/100\\)\n` +
+        `• Minskning ${dec}% ⇒ faktor \\(1-${dec}/100\\).`;
+      break;
+    }
+
+    case 5: {
+      const r = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      const formatIntTex = (num) => String(num).replace(/\B(?=(\d{3})+(?!\d))/g, "\\,");
+
+      let n = r(2, 5);
+      let m = r(1, 5);
+      while (m === n) m = r(1, 5);
+
+      let t = r(2, 10);
+      let xSol = Math.pow(t, n);
+      let rhsCore = Math.pow(t, m);
+
+      let hasCoeff = Math.random() > 0.5;
+      let a = hasCoeff ? r(2, 9) : 1;
+      let rhs = a * rhsCore;
+
+      const expTex = `\\frac{${m}}{${n}}`;
+      const invExpTex = `\\frac{${n}}{${m}}`;
+
+      if (hasCoeff) {
+        qData.q = `Lös ekvationen: \\(${a}x^{${expTex}} = ${formatIntTex(rhs)}\\)`;
+      } else {
+        qData.q = `Lös ekvationen: \\(x^{${expTex}} = ${formatIntTex(rhs)}\\)`;
+      }
+
+      qData.corr = 0;
+      qData.opts = [
+        `\\(x = ${formatIntTex(xSol)}\\)`,
+        `\\(x = ${formatIntTex(Math.pow(t, m))}\\)`,
+        `\\(x = ${formatIntTex(Math.pow(rhsCore, n))}\\)`,
+        `\\(x = ${formatIntTex(Math.max(1, Math.round(rhsCore / (hasCoeff ? a : 1))))}\\)`
+      ];
+
+      if (hasCoeff) {
+        qData.expl =
+          `Steg 1: Dela båda led med ${a}:\n` +
+          `\\(x^{${expTex}} = ${formatIntTex(rhs)}/${a} = ${formatIntTex(rhs/a)}\\).\n` +
+          `Steg 2: Upphöj båda led med \\(${invExpTex}\\) så exponenten på x blir 1:\n` +
+          `\\((x^{${expTex}})^{${invExpTex}} = x\\).\n` +
+          `Steg 3: \\(x = ${formatIntTex(rhs/a)}^{${invExpTex}} = ${formatIntTex(xSol)}\\).`;
+      } else {
+        qData.expl =
+          `Steg 1: Upphöj båda led med \\(${invExpTex}\\):\n` +
+          `\\((x^{${expTex}})^{${invExpTex}}=x\\).\n` +
+          `Steg 2: \\(x = ${formatIntTex(rhs)}^{${invExpTex}} = ${formatIntTex(xSol)}\\).`;
+      }
+
+      qData.alt =
+        `Alternativt tänk (regel):\n` +
+        `Om \\(x^{m/n}=A\\) så blir \\(x=A^{n/m}\\).\n` +
+        (hasCoeff ? `Om \\(${a}x^{m/n}=B\\): börja alltid med att dela med ${a}.\n` : ``) +
+        `Kontroll: Sätt in ditt x i ursprungsekvationen och se att vänsterled = högerled.`;
+
+      break;
+    }
+
+    case 6: {
+      let x1 = r(1, 3), y1 = r(1, 10), stepX = r(2, 4), stepY = r(2, 6) * stepX;
+      let x2 = x1 + stepX, y2 = y1 + stepY;
+      qData.q = `Beräkna lutningen (k) för linjen genom (${x1}, ${y1}) och (${x2}, ${y2}).`;
+      qData.corr = 0;
+      qData.opts = [`\\(k = ${stepY/stepX}\\)`, `\\(k = ${stepX}\\)`, `\\(k = ${stepY}\\)`, `\\(k = ${(stepX/stepY).toFixed(2)}\\)`];
+      qData.expl =
+        `Steg 1: Använd \\(k=\\frac{y_2-y_1}{x_2-x_1}\\).\n` +
+        `Steg 2: \\(y_2-y_1=${y2}-${y1}=${stepY}\\).\n` +
+        `Steg 3: \\(x_2-x_1=${x2}-${x1}=${stepX}\\).\n` +
+        `Steg 4: \\(k=\\frac{${stepY}}{${stepX}}=${stepY/stepX}\\).`;
+      qData.alt =
+        `Alternativt: Rita punkterna och räkna “hur mycket upp” per “hur mycket åt höger”.\n` +
+        `Här går du ${stepY} upp när du går ${stepX} åt höger ⇒ k = ${stepY/stepX}.`;
+      break;
+    }
+
+    case 7: {
+      let k7 = r(2, 5), x7 = r(1, 4), m7 = r(1, 10), y7 = k7*x7 + m7;
+      qData.q = `En linje har k=${k7} och går genom (${x7}, ${y7}). Vad är m-värdet?`;
+      qData.corr = 0;
+      qData.opts = [`\\(m = ${m7}\\)`, `\\(m = ${y7}\\)`, `\\(m = ${k7}\\)`, `\\(m = ${y7 + k7*x7}\\)`];
+      qData.expl =
+        `Steg 1: Utgå från \\(y=kx+m\\).\n` +
+        `Steg 2: Sätt in punkten \\((${x7},${y7})\\) och \\(k=${k7}\\):\n` +
+        `\\(${y7}=${k7}\\cdot${x7}+m\\).\n` +
+        `Steg 3: Räkna \\(${k7}\\cdot${x7}=${k7*x7}\\).\n` +
+        `Steg 4: \\(m=${y7}-${k7*x7}=${m7}\\).`;
+      qData.alt =
+        `Snabbformel: \\(m = y - kx\\).\n` +
+        `Här: \\(m=${y7}-${k7}\\cdot${x7}=${m7}\\).`;
+      break;
+    }
+
+    case 8: {
+      const randNonZero = (min, max) => {
+        let v = r(min, max);
+        while (v === 0) v = r(min, max);
+        return v;
+      };
+
+      let k8 = randNonZero(-5, 5);
+      let m8 = r(-10, 10);
+
+      let xA = r(-6, 6);
+      let xB = r(-6, 6);
+      while (xB === xA) xB = r(-6, 6);
+
+      let yA = k8 * xA + m8;
+      let yB = k8 * xB + m8;
+
+      const mStr = (m8 >= 0) ? `+ ${m8}` : `- ${Math.abs(m8)}`;
+      const kStr = (k8 === 1) ? `` : (k8 === -1 ? `-` : `${k8}`);
+
+      qData.q = `Vilken ekvation har linjen genom (${xA}, ${yA}) och (${xB}, ${yB})?`;
+      qData.corr = 0;
+
+      qData.opts = [
+        `\\(y = ${kStr}x ${mStr}\\)`,
+        `\\(y = ${m8}x ${k8 >= 0 ? '+ ' + k8 : '- ' + Math.abs(k8)}\\)`,
+        `\\(y = ${kStr}x ${m8 >= 0 ? '- ' + m8 : '+ ' + Math.abs(m8)}\\)`,
+        `\\(y = ${k8 + (k8 > 0 ? 1 : -1)}x ${mStr}\\)`
+      ];
+
+      const dy = (yB - yA);
+      const dx = (xB - xA);
+
+      qData.expl =
+        `Steg 1: Räkna lutningen:\n` +
+        `\\(k=\\frac{y_B-y_A}{x_B-x_A}=\\frac{${yB}-${yA}}{${xB}-${xA}}=\\frac{${dy}}{${dx}}=${k8}\\).\n` +
+        `Steg 2: Använd \\(m = y-kx\\) med punkt \\((${xA},${yA})\\):\n` +
+        `\\(m=${yA}-${k8}\\cdot${xA}=${m8}\\).\n` +
+        `Steg 3: Skriv linjen: \\(y=${k8}x${mStr}\\).`;
+
+      qData.alt =
+        `Alternativt: ta andra punkten \\((${xB},${yB})\\) och räkna \\(m=y-kx\\) igen.\n` +
+        `Båda ska ge samma m-värde (${m8}).`;
+      break;
+    }
+
+    /* Nivå 10 (index 9): Avstånd + Pythagoras med bild */
+    case 9: {
+      const triples = [
+        [3,4,5],
+        [4,3,5],
+        [5,12,13],
+        [12,5,13],
+        [6,8,10],
+        [8,6,10]
+      ];
+      const [dxAbs, dyAbs, dist] = triples[r(0, triples.length-1)];
+
+      const sx = Math.random() > 0.5 ? 1 : -1;
+      const sy = Math.random() > 0.5 ? 1 : -1;
+
+      // välj startpunkt så att vi hamnar inom rimlig ruta (-6..6 ungefär)
+      let x1 = r(-5, 5);
+      let y1 = r(-5, 5);
+      let x2 = x1 + sx*dxAbs;
+      let y2 = y1 + sy*dyAbs;
+
+      // om vi hamnar för långt bort, prova igen några gånger
+      for (let tries=0; tries<20 && (Math.abs(x2) > 6 || Math.abs(y2) > 6); tries++){
+        x1 = r(-5, 5);
+        y1 = r(-5, 5);
+        x2 = x1 + sx*dxAbs;
+        y2 = y1 + sy*dyAbs;
+      }
+
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+
+      qData.q = `Beräkna avståndet mellan (${x1}, ${y1}) och (${x2}, ${y2}).`;
+      qData.corr = 0;
+
+      const wrong1 = dist + r(1, 3);
+      const wrong2 = Math.max(1, dist - r(1, 3));
+      const wrong3 = dx*dx + dy*dy;
+
+      qData.opts = [`\\(${dist}\\)`, `\\(${wrong1}\\)`, `\\(${wrong2}\\)`, `\\(${wrong3}\\)`];
+
+      qData.diagram = svgDistanceTriangle(x1,y1,x2,y2);
+
+      qData.expl =
+        `Steg 1: Ta skillnad i x-led: \\(\\Delta x = ${x2}-${x1} = ${dx}\\).\n` +
+        `Steg 2: Ta skillnad i y-led: \\(\\Delta y = ${y2}-${y1} = ${dy}\\).\n` +
+        `Steg 3: Tänk en rätvinklig triangel där kateterna är \\(|\\Delta x|=${Math.abs(dx)}\\) och \\(|\\Delta y|=${Math.abs(dy)}\\) (se bilden).\n` +
+        `Steg 4: Använd Pythagoras sats: \\(d^2 = (\\Delta x)^2 + (\\Delta y)^2\\).\n` +
+        `Steg 5: \\(d^2 = ${dx}^2 + ${dy}^2 = ${dx*dx} + ${dy*dy} = ${dx*dx + dy*dy}\\).\n` +
+        `Steg 6: \\(d = \\sqrt{${dx*dx + dy*dy}} = ${dist}\\).\n` +
+        `Alltså är avståndet \\(${dist}\\).`;
+
+      qData.alt =
+        `Samma sak som avståndsformeln:\n` +
+        `\\(d=\\sqrt{(x_2-x_1)^2+(y_2-y_1)^2}=\\sqrt{(${x2}-${x1})^2+(${y2}-${y1})^2}=\\sqrt{${dx*dx + dy*dy}}=${dist}\\).`;
+      break;
+    }
+
+    /* Nivå 11 (index 10): System – visa substitution, addition, grafiskt */
+    case 10: {
+      let x0 = r(-4, 6);
+      let y0 = r(-4, 6);
+      if(x0 === 0 && y0 === 0) { x0 = 2; y0 = -1; }
+
+      let a1 = r(2, 5), b1 = r(1, 5);
+      let a2 = r(1, 5), b2 = r(2, 5);
+      if(a1*b2 === a2*b1) a2 += 1;
+
+      let c1 = a1*x0 + b1*y0;
+      let c2 = a2*x0 - b2*y0;
+
+      qData.isSystem = true;
+      qData.q1 = `${a1}x + ${b1}y = ${c1}`;
+      qData.q2 = `${a2}x - ${b2}y = ${c2}`;
+
+      qData.corr = 0;
+      qData.opts = [
+        `\\(x=${x0},\\;y=${y0}\\)`,
+        `\\(x=${x0+1},\\;y=${y0}\\)`,
+        `\\(x=${x0},\\;y=${y0+1}\\)`,
+        `\\(x=${-x0},\\;y=${y0}\\)`
+      ];
+
+      qData.diagram = svgSystemGraph(a1,b1,c1,a2,b2,c2,x0,y0);
+
+      // Förklaringar med EXAKTA TAL
+      const yExpr1 = `\\(y = \\frac{${c1}-${a1}x}{${b1}}\\)`;
+      const yExpr2 = `\\(y = \\frac{${a2}x-${c2}}{${b2}}\\)`;
+
+      qData.expl =
+        `Målet: hitta (x,y) som gör att BÅDA ekvationerna stämmer.\n\n` +
+        `➤ METOD 1: Insättningsmetoden (substitution)\n` +
+        `Steg 1: Lös ut y ur ekvation 1:\n` +
+        `\\(${a1}x+${b1}y=${c1}\\Rightarrow ${b1}y=${c1}-${a1}x\\Rightarrow ${yExpr1}\\).\n` +
+        `Steg 2: Lös ut y ur ekvation 2:\n` +
+        `\\(${a2}x-${b2}y=${c2}\\Rightarrow -${b2}y=${c2}-${a2}x\\Rightarrow ${b2}y=${a2}x-${c2}\\Rightarrow ${yExpr2}\\).\n` +
+        `Steg 3: Sätt uttrycken lika (båda är y):\n` +
+        `\\(\\frac{${c1}-${a1}x}{${b1}} = \\frac{${a2}x-${c2}}{${b2}}\\).\n` +
+        `Steg 4: Lös ekvationen (korsmultiplicera). Du får \\(x=${x0}\\).\n` +
+        `Steg 5: Sätt in \\(x=${x0}\\) i t.ex. ekvation 1:\n` +
+        `\\(${a1}\\cdot${x0}+${b1}y=${c1}\\Rightarrow ${b1}y=${c1}-${a1*x0}=${b1*y0}\\Rightarrow y=${y0}\\).\n\n` +
+        `➤ METOD 2: Additionsmetoden (eliminering)\n` +
+        `Steg 1: Addera ekvationerna som de står:\n` +
+        `\\((${a1}x+${b1}y)+(${a2}x-${b2}y)=${c1}+${c2}\\)\n` +
+        `\\(\\Rightarrow (${a1+a2})x + (${b1-b2})y = ${c1+c2}\\).\n` +
+        `Steg 2: Lös den nya ekvationen och kombinera med en av originalekvationerna.\n` +
+        `Du landar på samma lösning: \\(x=${x0}, y=${y0}\\).\n\n` +
+        `➤ METOD 3: Grafisk lösning\n` +
+        `Steg 1: Rita linjerna (se bilden).\n` +
+        `Steg 2: Skärningspunkten är lösningen.\n` +
+        `Här skär de i \\((${x0},${y0})\\).`;
+
+      qData.alt =
+        `Kontroll (superviktigt): Sätt in \\(x=${x0}, y=${y0}\\)\n` +
+        `• Ekv 1: \\(${a1}\\cdot${x0}+${b1}\\cdot${y0}=${a1*x0}+${b1*y0}=${c1}\\) ✅\n` +
+        `• Ekv 2: \\(${a2}\\cdot${x0}-${b2}\\cdot${y0}=${a2*x0}-${b2*y0}=${c2}\\) ✅\n\n` +
+        `Om båda stämmer är punkten rätt!`;
+      break;
+    }
+
+    /* Nivå 12 (index 11): faktorisering + även PQ */
+    case 11: {
+      let fx = r(2, 9);
+      qData.q = `Lös ekvationen: \\(x^2 - ${fx}x = 0\\)`;
+      qData.corr = 0;
+      qData.opts = [`\\(x_1 = 0, x_2 = ${fx}\\)`, `\\(x = ${fx}\\)`, `\\(x = 0\\)`, `\\(x_1 = 0, x_2 = -${fx}\\)`];
+
+      qData.expl =
+        `➤ METOD 1: Faktorisera (nollprodukt)\n` +
+        `Steg 1: Bryt ut x:\n` +
+        `\\(x^2-${fx}x = x(x-${fx})\\).\n` +
+        `Steg 2: Nollproduktmetoden:\n` +
+        `\\(x(x-${fx})=0\\) betyder att\n` +
+        `• \\(x=0\\) eller\n` +
+        `• \\(x-${fx}=0\\Rightarrow x=${fx}\\).\n` +
+        `Alltså \\(x_1=0\\) och \\(x_2=${fx}\\).`;
+
+      const p = -fx;
+      const q = 0;
+      const minusPover2 = fx/2;
+      const pover2 = -fx/2;
+      const inside = (fx/2)*(fx/2) - q;
+
+      qData.alt =
+        `➤ METOD 2: PQ-formeln (för formen \\(x^2+px+q=0\\))\n` +
+        `Steg 1: Skriv på formen \\(x^2+px+q=0\\).\n` +
+        `Här: \\(x^2 + (${p})x + (${q}) = 0\\).\n` +
+        `Alltså \\(p=${p}\\) och \\(q=${q}\\).\n` +
+        `Steg 2: PQ-formeln:\n` +
+        `\\(x=-\\frac{p}{2}\\pm\\sqrt{(\\frac{p}{2})^2-q}\\).\n` +
+        `Steg 3: Sätt in talen:\n` +
+        `\\(-\\frac{p}{2}=-\\frac{${p}}{2}=${minusPover2}\\)\n` +
+        `och \\(\\left(\\frac{p}{2}\\right)^2-q=(${pover2})^2-0=${inside}\\).\n` +
+        `Steg 4: \\(x=${minusPover2}\\pm\\sqrt{${inside}}=${minusPover2}\\pm${Math.sqrt(inside)}\\).\n` +
+        `Det ger \\(x=0\\) och \\(x=${fx}\\).`;
+      break;
+    }
+
+    case 12: {
+      let a13 = r(2, 4);
+      let r1 = r(-6, 6);
+      let r2 = r(-6, 6);
+      if(r1 === r2) r2 += 1;
+
+      let b13 = -a13*(r1 + r2);
+      let c13 = a13*(r1 * r2);
+
+      const bStr = (b13 >= 0) ? `+ ${b13}` : `- ${Math.abs(b13)}`;
+      const cStr = (c13 >= 0) ? `+ ${c13}` : `- ${Math.abs(c13)}`;
+
+      qData.q = `Lös ekvationen: \\(${a13}x^2 ${bStr}x ${cStr} = 0\\)`;
+      qData.corr = 0;
+
+      qData.opts = [
+        `\\(x_1=${r1},\\;x_2=${r2}\\)`,
+        `\\(x_1=${-r1},\\;x_2=${r2}\\)`,
+        `\\(x_1=${r1+1},\\;x_2=${r2-1}\\)`,
+        `\\(x_1=${r2},\\;x_2=${r1}\\)`
+      ];
+
+      const A=a13, B=b13, C=c13;
+      const pVal = B/A;
+      const qVal = C/A;
+
+      qData.expl =
+        `Steg 1: Dela hela ekvationen med ${A} så du får \\(x^2+px+q=0\\).\n` +
+        `\\(${A}x^2 ${bStr}x ${cStr}=0\\Rightarrow x^2 + (${pVal})x + (${qVal})=0\\).\n` +
+        `Steg 2: Använd PQ-formeln:\n` +
+        `\\(x=-\\frac{p}{2}\\pm\\sqrt{(\\frac{p}{2})^2-q}\\).\n` +
+        `Steg 3: Här är \\(p=${pVal}\\) och \\(q=${qVal}\\).\n` +
+        `Steg 4: Då får du rötterna \\(x=${r1}\\) och \\(x=${r2}\\) (dessa är byggda in i uppgiften).`;
+
+      qData.alt =
+        `Alternativ metod: Faktorisera med rötterna\n` +
+        `Om rötterna är \\(r_1=${r1}\\) och \\(r_2=${r2}\\) så kan polynomet skrivas:\n` +
+        `\\(${A}(x-${r1})(x-${r2})=0\\).\n` +
+        `Nollprodukt: \\(x-${r1}=0\\Rightarrow x=${r1}\\) eller \\(x-${r2}=0\\Rightarrow x=${r2}\\).\n` +
+        `Kontroll: sätt in \\(x=${r1}\\) och \\(x=${r2}\\) i ursprungsekvationen → vänsterled blir 0.`;
+      break;
+    }
+
+    case 13: {
+      let pv = r(2, 5) * 2;
+      qData.q = `Vad är x-värdet för vertex till \\(y = x^2 - ${pv}x + 10\\)?`;
+      qData.corr = 0;
+      qData.opts = [`\\(x = ${pv/2}\\)`, `\\(x = ${pv}\\)`, `\\(x = -${pv/2}\\)`, `\\(x = 0\\)`];
+      qData.expl =
+        `Steg 1: Skriv som \\(y=x^2+px+q\\). Här är \\(p=-${pv}\\).\n` +
+        `Steg 2: Vertex x-värde är \\(x=-\\frac{p}{2}\\).\n` +
+        `Steg 3: \\(-\\frac{p}{2}=-\\frac{-${pv}}{2}=\\frac{${pv}}{2}=${pv/2}\\).\n` +
+        `Alltså är vertex x-värde \\(${pv/2}\\).`;
+      qData.alt =
+        `Alternativt: symmetrilinjen ligger mitt mellan rötterna. För \\(x^2-px\\) hamnar den vid \\(p/2\\). Här: ${pv}/2=${pv/2}.`;
+      break;
+    }
+
+    case 14: {
+      let q1_14 = r(3, 8), q3_14 = q1_14 + r(4, 9);
+      qData.q = `I ett lådagram är Q1=${q1_14} och Q3=${q3_14}. Vad är kvartilavståndet?`;
+      qData.corr = 0;
+      qData.opts = [`\\(${q3_14 - q1_14}\\)`, `\\(${q3_14 + q1_14}\\)`, `\\(${q1_14}\\)`, `\\(${q3_14}\\)`];
+      qData.expl =
+        `Steg 1: Kvartilavstånd (IQR) definieras som \\(Q3-Q1\\).\n` +
+        `Steg 2: Här är \\(Q3=${q3_14}\\) och \\(Q1=${q1_14}\\).\n` +
+        `Steg 3: \\(Q3-Q1=${q3_14}-${q1_14}=${q3_14-q1_14}\\).\n` +
+        `Alltså är kvartilavståndet \\(${q3_14-q1_14}\\).`;
+      qData.alt =
+        `Tolkning: Det är spridningen för de mittersta 50% av värdena.`;
+      break;
+    }
+
+    case 15: {
+      function boxSvg(d, label){
+        const [mn,q1,md,q3,mx] = d;
+        const W = 300, H = 140;
+        const padL = 20, padR = 20;
+        const yMid = 62;
+        const scaleY = 118;
+        const scaleMin = 0, scaleMax = 20;
+
+        const x = v => padL + (v - scaleMin) * (W - padL - padR) / (scaleMax - scaleMin);
+
+        const xMn = x(mn), xQ1 = x(q1), xMd = x(md), xQ3 = x(q3), xMx = x(mx);
+
+        const boxH = 34;
+        const boxY = yMid - boxH/2;
+
+        const ticks = [0,5,10,15,20].map(v=>{
+          const xx = x(v);
+          return `
+            <line x1="${xx}" y1="${scaleY-10}" x2="${xx}" y2="${scaleY-2}" stroke="#64748b" stroke-width="2"/>
+            <text x="${xx}" y="${scaleY+14}" font-size="12" text-anchor="middle" fill="#334155">${v}</text>
+          `;
+        }).join("");
+
+        return `
+          <svg viewBox="0 0 ${W} ${H}" width="100%" height="120" role="img" aria-label="Lådagram ${label}">
+            <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="white"/>
+            <text x="14" y="18" font-size="14" font-weight="700" fill="#0f172a">${label}</text>
+
+            <line x1="${xMn}" y1="${yMid}" x2="${xQ1}" y2="${yMid}" stroke="#0f172a" stroke-width="4"/>
+            <line x1="${xQ3}" y1="${yMid}" x2="${xMx}" y2="${yMid}" stroke="#0f172a" stroke-width="4"/>
+            <line x1="${xMn}" y1="${yMid-18}" x2="${xMn}" y2="${yMid+18}" stroke="#0f172a" stroke-width="4"/>
+            <line x1="${xMx}" y1="${yMid-18}" x2="${xMx}" y2="${yMid+18}" stroke="#0f172a" stroke-width="4"/>
+
+            <rect x="${xQ1}" y="${boxY}" width="${Math.max(2, xQ3-xQ1)}" height="${boxH}" fill="#94a3b8" opacity="0.35"
+                  stroke="#0f172a" stroke-width="4" rx="8"/>
+            <line x1="${xMd}" y1="${boxY}" x2="${xMd}" y2="${boxY+boxH}" stroke="#0f172a" stroke-width="4"/>
+
+            <line x1="${x(scaleMin)}" y1="${scaleY}" x2="${x(scaleMax)}" y2="${scaleY}" stroke="#94a3b8" stroke-width="3"/>
+            ${ticks}
+          </svg>
+        `;
+      }
+
+      // slumpa fem värden inom 0..20, strikt ökande
+      let vals = [];
+      while (vals.length < 5) {
+        const v = r(0, 20);
+        if (!vals.includes(v)) vals.push(v);
+      }
+      vals.sort((a,b)=>a-b);
+
+      // se till att de inte blir "för platta" (ger tydligare låda)
+      if (vals[4]-vals[0] < 6) {
+        vals[4] = Math.min(20, vals[0] + 6);
+        if (vals[4] === vals[0]) vals[4] = Math.min(20, vals[0] + 1);
+        vals = [...new Set(vals)].sort((a,b)=>a-b);
+        while (vals.length < 5) {
+          const v = r(0, 20);
+          if (!vals.includes(v)) vals.push(v);
+          vals.sort((a,b)=>a-b);
+        }
+      }
+
+      const correct = [vals[0], vals[1], vals[2], vals[3], vals[4]];
+
+      // skapa tre distraktorer som inte råkar bli identiska
+      const clamp = (x)=>Math.max(0, Math.min(20, x));
+      const makeDistr = (shift) => {
+        const d = [
+          clamp(correct[0] + shift[0]),
+          clamp(correct[1] + shift[1]),
+          clamp(correct[2] + shift[2]),
+          clamp(correct[3] + shift[3]),
+          clamp(correct[4] + shift[4])
+        ].sort((a,b)=>a-b);
+
+        // se till att det är strikt ökande (för femtalet)
+        for (let i=1;i<5;i++){
+          if (d[i] <= d[i-1]) d[i] = clamp(d[i-1] + 1);
+        }
+        d[4] = clamp(Math.max(d[4], d[3] + 1));
+        return d;
+      };
+
+      const d1 = makeDistr([ 1, 0, 0, 0, 0]);
+      const d2 = makeDistr([ 0, 1, 0, 0, 0]);
+      const d3 = makeDistr([ 0, 0, 0, -1, 0]);
+
+      qData.q = `Vilket lådagram motsvarar datan: ${correct[0]}, ${correct[1]}, ${correct[2]}, ${correct[3]}, ${correct[4]}?`;
+      qData.corr = 0;
+      qData.opts = [
+        boxSvg(correct, "A"),
+        boxSvg(d1, "B"),
+        boxSvg(d2, "C"),
+        boxSvg(d3, "D")
+      ];
+      qData.expl =
+        `Steg 1: Sortera datan: ${correct[0]}, ${correct[1]}, ${correct[2]}, ${correct[3]}, ${correct[4]}.\n` +
+        `Steg 2: Läs av femtalet:\n` +
+        `• min = ${correct[0]}\n• Q1 = ${correct[1]}\n• median = ${correct[2]}\n• Q3 = ${correct[3]}\n• max = ${correct[4]}\n` +
+        `Steg 3: Välj det lådagram som visar exakt dessa fem värden.`;
+      qData.alt =
+        `Snabbkoll: Medianen (${correct[2]}) ska vara linjen i lådan. Min/max (${correct[0]} och ${correct[4]}) är “visarna” längst ut.`;
+      break;
+    }
+
+    case 16: {
+      const useTwoSigma = Math.random() > 0.5;
+      const mu = r(60, 140);
+      const sigma = r(5, 25);
+      const k = useTwoSigma ? 2 : 1;
+      const lo = mu - k*sigma;
+      const hi = mu + k*sigma;
+
+      qData.q = `I en normalfördelad population ($\\mu=${mu}$, $\\sigma=${sigma}$), hur många procent ligger mellan ${lo} och ${hi}?`;
+      qData.corr = 0;
+
+      if (useTwoSigma) {
+        qData.opts = ["\\(95,4\\%\\)", "\\(68,2\\%\\)", "\\(34,1\\%\\)", "\\(50\\%\\)"];
+        qData.expl =
+          `Steg 1: Medelvärde \\(\\mu=${mu}\\), standardavvikelse \\(\\sigma=${sigma}\\).\n` +
+          `Steg 2: ${lo} = ${mu} − 2\\cdot${sigma} och ${hi} = ${mu} + 2\\cdot${sigma}.\n` +
+          `Steg 3: Intervallet är alltså \\(\\mu\\pm2\\sigma\\).\n` +
+          `Steg 4: I normalfördelning är \\(\\mu\\pm2\\sigma\\) ≈ 95,4%.\n` +
+          `Alltså: 95,4%.`;
+        qData.alt =
+          `Minnesregel: 68–95–99,7-regeln.\n` +
+          `±1σ ≈ 68%, ±2σ ≈ 95%, ±3σ ≈ 99,7%.`;
+      } else {
+        qData.opts = ["\\(68,2\\%\\)", "\\(95,4\\%\\)", "\\(34,1\\%\\)", "\\(50\\%\\)"];
+        qData.expl =
+          `Steg 1: Medelvärde \\(\\mu=${mu}\\), standardavvikelse \\(\\sigma=${sigma}\\).\n` +
+          `Steg 2: ${lo} = ${mu} − ${sigma} och ${hi} = ${mu} + ${sigma}.\n` +
+          `Steg 3: Intervallet är alltså \\(\\mu\\pm1\\sigma\\).\n` +
+          `Steg 4: I normalfördelning är \\(\\mu\\pm1\\sigma\\) ≈ 68,2%.\n` +
+          `Alltså: 68,2%.`;
+        qData.alt =
+          `Minnesregel: 68–95–99,7-regeln.\n` +
+          `±1σ ≈ 68%, ±2σ ≈ 95%, ±3σ ≈ 99,7%.`;
+      }
+      break;
+    }
+
+    case 17: {
+      const spreadMore = Math.random() > 0.5;
+      if (spreadMore) {
+        qData.q = "Vad händer med standardavvikelsen om alla värden sprids ut mer från medelvärdet?";
+        qData.corr = 0;
+        qData.opts = ["Den ökar", "Den minskar", "Oförändrad", "Blir noll"];
+        qData.expl =
+          `Steg 1: Standardavvikelse mäter spridning runt medelvärdet.\n` +
+          `Steg 2: Om värdena ligger längre från medelvärdet blir avvikelserna större.\n` +
+          `Steg 3: Större avvikelser ⇒ större standardavvikelse.\n` +
+          `Alltså: den ökar.`;
+        qData.alt =
+          `Exempel: {5,5,5} har standardavvikelse 0. {1,5,9} har mycket större spridning ⇒ större standardavvikelse.`;
+      } else {
+        qData.q = "Vad händer med standardavvikelsen om alla värden samlas närmare medelvärdet?";
+        qData.corr = 0;
+        qData.opts = ["Den minskar", "Den ökar", "Oförändrad", "Blir noll"];
+        qData.expl =
+          `Steg 1: Standardavvikelse mäter spridning runt medelvärdet.\n` +
+          `Steg 2: Om värdena ligger närmare medelvärdet blir avvikelserna mindre.\n` +
+          `Steg 3: Mindre avvikelser ⇒ mindre standardavvikelse.\n` +
+          `Alltså: den minskar.`;
+        qData.alt =
+          `Exempel: {1,5,9} har stor spridning. Om du flyttar 1 och 9 närmare 5 blir spridningen mindre ⇒ standardavvikelsen minskar.`;
+      }
+      break;
+    }
+
+    case 18: {
+      const a = r(0, 10);
+      const d = r(1, 6);
+      const x1 = a - d;
+      const x2 = a;
+      const x3 = a + d;
+
+      qData.q = `Beräkna standardavvikelsen för {${x1}, ${x2}, ${x3}}.`;
+      qData.corr = 0;
+
+      const w1 = Math.max(0, d-1);
+      const w2 = d+1;
+      const w3 = d+2;
+
+      qData.opts = [`\\(${d}\\)`, `\\(${w1}\\)`, `\\(${w2}\\)`, `\\(${w3}\\)`];
+
+      qData.expl =
+        `Steg 1: Medelvärde: \\(\\bar{x}=(${x1}+${x2}+${x3})/3=${a}\\).\n` +
+        `Steg 2: Avvikelser: \\(${x1}-${a}=-${d}\\), \\(${x2}-${a}=0\\), \\(${x3}-${a}=${d}\\).\n` +
+        `Steg 3: Kvadrera: \\((-${d})^2=${d*d}\\), \\(0^2=0\\), \\(${d}^2=${d*d}\\).\n` +
+        `Steg 4: Summa: \\(${d*d}+0+${d*d}=${2*d*d}\\).\n` +
+        `Steg 5 (stickprov): \\(s=\\sqrt{\\frac{${2*d*d}}{3-1}}=\\sqrt{${d*d}}=${d}\\).\n` +
+        `Alltså: \\(${d}\\).`;
+      qData.alt =
+        `Smart genväg när talen är symmetriska {a−d, a, a+d}:\n` +
+        `Då blir stickprovs-standardavvikelsen alltid exakt \\(d\\).`;
+      break;
+    }
+
+    case 19: {
+      const fmt = (num) => (Number.isInteger(num) ? String(num) : num.toFixed(2)).replace('.', ',');
+      const fmtSigned = (num) => (num >= 0 ? `+ ${fmt(num)}` : `- ${fmt(Math.abs(num))}`);
+
+      if(Math.random() > 0.5) {
+        let k1 = r(2, 7);
+        let b1 = r(-6, 10);
+
+        let xP = r(-5, 5);
+        let yP = r(-10, 10);
+
+        if (yP === k1 * xP + b1) yP += 2;
+
+        let k2 = -1 / k1;
+        let m2 = yP - k2 * xP;
+
+        qData.diagram = svgPerpLines(k1, b1, k2, m2, xP, yP);
+
+        let k2Str = fmt(k2);
+        let m2Str = fmtSigned(m2);
+
+        let mWrong1 = m2 + r(2, 6);
+        let mWrong1Str = fmtSigned(mWrong1);
+        let kWrong = (1 / k1);
+        let kWrongStr = fmt(kWrong);
+
+        qData.q = `Linjen \\(y = ${k1}x ${b1>=0?'+':''}${b1}\\) är given.\n` +
+                  `Vilken linje går genom punkten \\((${xP}, ${yP})\\) och är vinkelrät (90°) mot den?`;
+
+        qData.corr = 0;
+        qData.opts = [
+          `\\(y = ${k2Str}x ${m2Str}\\)`,
+          `\\(y = ${k2Str}x ${mWrong1Str}\\)`,
+          `\\(y = ${kWrongStr}x ${m2Str}\\)`,
+          `\\(y = ${fmt(-k2)}x ${m2Str}\\)`
+        ];
+
+        qData.expl =
+          `Steg 1: Lutningen på given linje är \\(k_1=${k1}\\).\n` +
+          `Steg 2: Vinkelräta linjer uppfyller \\(k_1\\cdot k_2=-1\\).\n` +
+          `Steg 3: Lös ut \\(k_2\\): \\(k_2=-\\frac{1}{k_1}=-\\frac{1}{${k1}}\\approx ${k2Str}\\).\n` +
+          `Steg 4: Linjen vi söker har formen \\(y=k_2x+m\\).\n` +
+          `Steg 5: Sätt in punkten \\((${xP},${yP})\\):\n` +
+          `\\(${yP}=(${k2Str})\\cdot(${xP})+m\\).\n` +
+          `Steg 6: Lös ut \\(m\\): \\(m=${yP}-(${k2Str})\\cdot(${xP})\\) ⇒ \\(m=${m2Str}\\).\n` +
+          `Alltså är linjen \\(y=${k2Str}x ${m2Str}\\).`;
+
+        qData.alt =
+          `Kontroll:\n` +
+          `1) Går linjen genom punkten? Sätt in \\(x=${xP}\\) och se att \\(y=${yP}\\).\n` +
+          `2) Är den vinkelrät? Räkna \\(${k1}\\cdot(${k2Str})\\) — ska bli \\(-1\\) (ungefär pga avrundning).`;
+
+      } else {
+        let a = r(1, 6);
+        let b = r(1, 6);
+        let c = r(-12, 12);
+
+        let xP = r(-5, 5);
+        let yP = r(-10, 10);
+
+        let k1 = -a / b;
+        let k2 = -1 / k1;
+        let m2 = yP - k2 * xP;
+
+        let m1 = c / b;
+        qData.diagram = svgPerpLines(k1, m1, k2, m2, xP, yP);
+
+        let k2Str = fmt(k2);
+        let m2Str = fmtSigned(m2);
+
+        let kWrong1 = fmt(-k2);
+        let kWrong2 = fmt(k1);
+        let mWrong1 = fmtSigned(m2 + r(2, 6));
+
+        qData.q = `Linjen \\(${a}x + ${b}y = ${c}\\) är given.\n` +
+                  `Vilken linje går genom punkten \\((${xP}, ${yP})\\) och är vinkelrät (90°) mot den?`;
+
+        qData.corr = 0;
+        qData.opts = [
+          `\\(y = ${k2Str}x ${m2Str}\\)`,
+          `\\(y = ${k2Str}x ${mWrong1}\\)`,
+          `\\(y = ${kWrong1}x ${m2Str}\\)`,
+          `\\(y = ${kWrong2}x ${m2Str}\\)`
+        ];
+
+        qData.expl =
+          `Steg 1: Skriv om \\(${a}x+${b}y=${c}\\) till k-form:\n` +
+          `\\(${b}y=-${a}x+${c}\\Rightarrow y=-\\frac{${a}}{${b}}x+\\frac{${c}}{${b}}\\).\n` +
+          `Alltså \\(k_1=-\\frac{${a}}{${b}}\\approx ${fmt(k1)}\\).\n` +
+          `Steg 2: Vinkelrät lutning: \\(k_2=-\\frac{1}{k_1}=\\frac{${b}}{${a}}\\approx ${k2Str}\\).\n` +
+          `Steg 3: Linjen vi söker: \\(y=k_2x+m\\).\n` +
+          `Steg 4: Sätt in punkten \\((${xP},${yP})\\): \\(${yP}=(${k2Str})\\cdot(${xP})+m\\).\n` +
+          `Steg 5: \\(m=${yP}-(${k2Str})\\cdot(${xP})\\Rightarrow m=${m2Str}\\).\n` +
+          `Alltså: \\(y=${k2Str}x ${m2Str}\\).`;
+
+        qData.alt =
+          `Kontroll:\n` +
+          `• \\(k_1\\cdot k_2\\) ska bli \\(-1\\).\n` +
+          `• Sätt in punkten så ska du få exakt \\(y=${yP}\\).`;
+      }
+
+      break;
+    }
+  }
+
+  // === FIX: förhindra "samma svar i omvänd ordning" för rötter (x1=a,x2=b) vs (x1=b,x2=a)
+  const rootRx = /\\\(x_1\s*=\s*(-?\d+),\\;x_2\s*=\s*(-?\d+)\s*\\\)/;
+  const seen = new Set();
+  const out = [];
+  for (const o of qData.opts) {
+    const m = o.match(rootRx);
+    let key = o;
+    if (m) {
+      const a = Number(m[1]);
+      const b = Number(m[2]);
+      key = `roots:${[a, b].sort((x, y) => x - y).join(",")}`;
+    }
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(o);
+    }
+  }
+  qData.opts = out;
+
+  // Behåll alltid 4 alternativ (försök fylla på med ett "fel" rotpar om vi råkade ta bort ett dublett-alternativ)
+  while (qData.opts.length < 4) {
+    let added = false;
+
+    // Om vi har minst ett rot-alternativ: skapa ett nytt "felaktigt" som inte krockar (och inte bara är omkastning)
+    const base = qData.opts.map(o => o.match(rootRx)).find(m => m);
+    if (base) {
+      const a = Number(base[1]);
+      const b = Number(base[2]);
+      const candidates = [
+        [a + 1, b],
+        [a, b + 1],
+        [a - 1, b],
+        [a, b - 1],
+        [a + 2, b - 1],
+        [a - 2, b + 1]
+      ];
+
+      for (const [ca, cb] of candidates) {
+        const key = `roots:${[ca, cb].sort((x, y) => x - y).join(",")}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          qData.opts.push(`\\(x_1=${ca},\\;x_2=${cb}\\)`);
+          added = true;
+          break;
+        }
+      }
+    }
+
+    if (!added) {
+      qData.opts.push("Alternativ " + (qData.opts.length + 1));
+    }
+  }
+
+  return qData;
+}
+
+let curLvl = 0;
+let streak = 0;
+let currentShuffledOpts = [];
+let currentCorrectIdx = -1;
+let currentQ = null;
+
+function renderQuestion() {
+  currentQ = generateDynamicQuestion(curLvl);
+  document.getElementById("lvlDisplay").innerText = currentQ.n;
+  document.getElementById("feedbackArea").classList.add("hidden");
+  document.getElementById("nextBtn").classList.add("hidden");
+  document.getElementById("checkBtn").disabled = false;
+  selectedIdx = null;
+
+  document.getElementById("progressBar").style.width = (curLvl / (levels.length - 1) * 100) + "%";
+  updateDots();
+
+  let mapped = currentQ.opts.map((text, i) => ({ text, isCorr: i === currentQ.corr }));
+  currentShuffledOpts = mapped.sort(() => Math.random() - 0.5);
+  currentCorrectIdx = currentShuffledOpts.findIndex(o => o.isCorr);
+
+  currentQ.correctLetter = String.fromCharCode(65 + currentCorrectIdx);
+  currentQ.correctText = currentShuffledOpts[currentCorrectIdx]?.text ?? "";
+
+  let qHtml = "";
+  if(currentQ.isSystem) {
+    qHtml = `Lös systemet: <div class="flex items-center my-6"><span class="system-bracket">{</span><div class="text-xl font-mono">${currentQ.q1}<br>${currentQ.q2}</div></div>`;
+  } else {
+    qHtml = `<div class="text-xl sm:text-2xl mb-8 leading-relaxed">${currentQ.q}</div>`;
+  }
+
+  let html = `<h2 class="text-indigo-400 font-bold mb-2 uppercase text-xs tracking-tighter">Nivå ${currentQ.n}: ${currentQ.title}</h2>${qHtml}<div class="space-y-3">`;
+
+  currentShuffledOpts.forEach((opt, i) => {
+    html += `
+      <button onclick="select(${i})" id="opt-${i}" class="w-full text-left p-4 rounded-xl border-2 border-slate-700 bg-slate-800/30 hover:border-indigo-500 transition-all">
+        <span class="inline-block w-8 h-8 rounded-full bg-slate-700 text-center leading-8 text-xs font-bold mr-3">${String.fromCharCode(65+i)}</span>
+        <span>${opt.text}</span>
+      </button>`;
+  });
+
+  document.getElementById("questionArea").innerHTML = html + `</div>`;
+  if (window.MathJax) MathJax.typesetPromise();
+}
+
+let selectedIdx = null;
+function select(i) {
+  selectedIdx = i;
+  document.querySelectorAll('[id^="opt-"]').forEach(b => b.classList.replace('border-indigo-500', 'border-slate-700'));
+  document.getElementById(`opt-${i}`).classList.replace('border-slate-700', 'border-indigo-500');
+}
+
+function checkQuestion() {
+  if (selectedIdx === null) return;
+
+  const isCorrect = selectedIdx === currentCorrectIdx;
+  const fb = document.getElementById("feedbackArea");
+
+  document.getElementById(`opt-${selectedIdx}`)
+    .classList.add(isCorrect ? 'correct' : 'incorrect');
+
+  const correctBtn = document.getElementById(`opt-${currentCorrectIdx}`);
+  if (correctBtn) correctBtn.classList.add('correct');
+
+  const diagramHtml = currentQ.diagram ? `<div class="mb-4">${currentQ.diagram}</div>` : "";
+
+  fb.innerHTML = `
+    <div class="card p-6 border-l-4 ${isCorrect ? 'border-emerald-500' : 'border-red-500'}">
+      <p class="${isCorrect ? 'text-emerald-400' : 'text-red-400'} font-bold text-lg mb-3">
+        ${isCorrect ? '✔ Rätt svar!' : '✘ Fel svar'}
+      </p>
+
+      <div class="bg-emerald-900/30 border border-emerald-600 rounded-xl p-4 mb-5">
+        <div class="text-emerald-300 font-bold text-lg mb-1">
+          ✅ Rätt svar är alternativ ${currentQ.correctLetter}
+        </div>
+        <div class="text-white text-lg">
+          ${currentQ.correctText}
+        </div>
+      </div>
+
+      ${diagramHtml}
+
+      <div class="mini-note mb-5">
+        <div class="step-title">📘 Handledning – steg för steg (med talen från uppgiften)</div>
+        <div class="text-slate-200 whitespace-pre-line leading-relaxed">
+${currentQ.expl}
+        </div>
+      </div>
+
+      <div class="mini-note">
+        <div class="method-title">🔎 Alternativ lösning / extra sätt att tänka</div>
+        <div class="text-slate-300 whitespace-pre-line">
+          ${currentQ.alt}
+        </div>
+      </div>
+    </div>
+  `;
+
+  fb.classList.remove("hidden");
+  document.getElementById("checkBtn").disabled = true;
+  document.getElementById("nextBtn").classList.remove("hidden");
+
+  if (isCorrect) streak++; else streak = 0;
+  updateDots();
+
+  if (window.MathJax) MathJax.typesetPromise();
+}
+
+function nextQuestion() {
+  if (streak >= 3) {
+    streak = 0;
+    if (curLvl < levels.length - 1) curLvl++;
+    else { alert("Mästerligt! Du har klarat alla nivåer!"); return; }
+  }
+  renderQuestion();
+}
+
+function skipLevel() {
+  streak = 0;
+  if (curLvl < levels.length - 1) curLvl++;
+  renderQuestion();
+}
+
+function updateDots() {
+  for(let i=1; i<=3; i++) {
+    const dot = document.getElementById("dot"+i);
+    if(dot) dot.className = i <= streak ? "streak-dot dot-on" : "streak-dot dot-off";
+  }
+  document.getElementById("streakText").innerText = `Nivå-streak: ${streak}/3`;
+}
+
+function calc(v) { document.getElementById("calcIn").value += v; }
+function evalCalc() {
+  try {
+    let res = eval(document.getElementById("calcIn").value.replace('ⁿ', '**'));
+    document.getElementById("calcIn").value = Number.isInteger(res) ? res : res.toFixed(4);
+  } catch(e) { document.getElementById("calcIn").value = "Fel"; }
+}
+
+window.onload = renderQuestion;
+</script>
+</body>
+</html>
